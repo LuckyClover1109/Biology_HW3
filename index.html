@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>序列視覺化</title>
+    <script src="https://d3js.org/d3.v6.js"></script>
+    <script src="main.js"></script>
+    <style>
+        .container {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 style="color:cornflowerblue;">序列視覺化</h1>
+        <textarea id="user_input" rows="16" cols="50"></textarea>
+        <br>
+        <button onclick="submit()">submit</button>
+        <!-- Add 2 buttons -->
+        <div id="col_btn">
+            <!--<button onclick="update('col1')">Column 1</button>-->
+        </div>
+
+        <!-- Create a div where the graph will take place -->
+        <div id="my_dataviz"></div>
+        <div id="tooltip"></div>
+    </div>
+</body>
+
+</html>
+<script>
+    // set the dimensions and margins of the graph
+    const margin = { top: 10, right: 30, bottom: 20, left: 50 },
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    // append the svg object to the body of the page
+    const svg = d3.select("#my_dataviz")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    var user_input = null;
+    // A function that create / update the plot for a given variable:
+    function update(selectedVar) {
+        function solve(data) {
+
+            // List of subgroups = header of the csv files = soil condition here
+            const subgroups = data.columns.slice(1)
+
+            // List of groups = species here = value of the first column called group -> I show them on the X axis
+            const groups = data.map(d => d.group)
+
+            // Add X axis
+            const x = d3.scaleBand()
+                .domain(groups)
+                .range([0, width])
+                .padding([0.2])
+            svg.append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x).tickSizeOuter(0));
+
+            // Add Y axis
+            const y = d3.scaleLinear()
+                .domain([0, 20])
+                .range([height, 0]);
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // color palette = one color per subgroup
+            const color = d3.scaleOrdinal()
+                .domain(subgroups)
+                .range([
+                    "#FFFF00",
+                    "#DDA0DD",
+                    "#DB7093",
+                    "#AFEEEE",
+                    "#808000",
+                    "#9370DB",
+                    "#66CDAA",
+                    "#B0C4DE",
+                    "#778899",
+                    "#FFA07A",
+                    "#7CFC00",
+                    "#F0E68C",
+                    "#0000E3",
+                    "#EA0000",
+                    "#FF0080",
+                    "#B15BFF",
+                    "#8E8E8E",
+                    "#FF8000",
+                    "#81C0C0",
+                    "#A5A552",
+                    "#984B4B",
+                    "#CF9E9E",
+                    "#9F4D95",
+                    "#FFDC35",
+                    "#64A600",
+                    "#613030"
+                ])
+
+            const stackedData = d3.stack()
+                .keys(subgroups)
+                (data)
+
+            const tooltip = d3.select("#tooltip")
+                .append("div")
+                .style("opacity", 0)
+                .attr("class", "tooltip")
+                .style("margin", "60px")
+                .style("background-color", "white")
+                .style("border", "solid")
+                .style("border-width", "1px")
+                .style("border-radius", "5px")
+                .style("padding", "10px")
+
+            // Show the bars
+            svg.append("g")
+                .selectAll("g")
+                // Enter in the stack data = loop key per key = group per group
+                .data(stackedData)
+                .join("g")
+                .attr("fill", d => color(d.key))
+                .attr("class", d => "myRect " + d.key) // Add a class to each subgroup: their name
+                .selectAll("rect")
+                // enter a second time = loop subgroup per subgroup to add all rectangles
+                .data(d => d)
+                .join("rect")
+                .attr("x", d => x(d.data.group))
+                .attr("y", d => y(d[1]))
+                .attr("height", d => y(d[0]) - y(d[1]))
+                .attr("width", x.bandwidth())
+                .attr("stroke", "grey")
+                .on("mouseover", function (event, d) { // What happens when user hover a bar
+
+                    // what subgroup are we hovering?
+                    const subGroupName = d3.select(this.parentNode).datum().key
+
+                    // Reduce opacity of all rect to 0.2
+                    d3.selectAll(".myRect").style("opacity", 0.2)
+
+                    // Highlight all rects of this subgroup with opacity 1. It is possible to select them since they have a specific class = their name.
+                    d3.selectAll("." + subGroupName).style("opacity", 1)
+
+                    const subgroupName = d3.select(this.parentNode).datum().key;
+                    const subgroupValue = d.data[subgroupName];
+                    tooltip
+                        .html("subgroup: " + subgroupName + "<br>" + "Value: " + subgroupValue)
+                        .style("opacity", 1)
+                })
+                .on("mouseleave", function (event, d) { // When user do not hover anymore
+
+                    // Back to normal opacity: 1
+                    d3.selectAll(".myRect")
+                        .style("opacity", 1)
+                    tooltip
+                        .style("opacity", 0)
+                })
+                .on("mousemove", function (event, d) {
+                    tooltip.style("transform", "translateY(-55%)")
+                        .style("left", (event.x) / 2 + "px")
+                        .style("top", (event.y) / 2 - 30 + "px")
+                })
+
+        }
+        // Parse the Data
+        var table = countLetter(user_input)
+        document.getElementById("col_btn").innerHTML = "";
+        solve(d3.csvParse(arrTocsvStr(table)));
+    }
+
+    function submit() {
+        user_input = document.getElementById("user_input").value;
+        update('col1');
+    }
+</script>
